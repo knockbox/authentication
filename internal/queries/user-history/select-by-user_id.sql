@@ -1,0 +1,1 @@
+SELECT * FROM user_history WHERE user_id = ? LIMIT ? OFFSET ?

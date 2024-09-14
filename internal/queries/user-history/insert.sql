@@ -1,0 +1,1 @@
+INSERT INTO user_history (user_id, ip_address, timestamp, action) VALUES (?, ?, NOW(), ?)
