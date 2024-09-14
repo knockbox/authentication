@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/go-hclog"
 	"github.com/joho/godotenv"
+	"github.com/knockbox/authentication/internal/handlers"
 	"github.com/knockbox/authentication/pkg/middleware"
 	"github.com/knockbox/authentication/pkg/utils"
 	"os"
@@ -44,10 +45,12 @@ func main() {
 	sm.Use(middleware.UseLogging(l).Middleware)
 
 	// /api grouping
-	//apiRouter := sm.PathPrefix("/api").Subrouter()
+	apiRouter := sm.PathPrefix("/api").Subrouter()
 	//apiRouter.Use(middleware.UseCaching(l).Middleware)
 
 	// Routes
+	handlers.NewHealthcheck().Route(apiRouter)
+	handlers.NewUser(l).Route(apiRouter)
 
 	utils.StartServerWithGracefulShutdown(sm, bindAddress, l)
 }
