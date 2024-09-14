@@ -93,8 +93,8 @@ func (k *KeySet) Generate(n int) error {
 		}
 		k.l.Debug("generated key", "kid", key.KeyID())
 
-		signingLifespan := time.Now().Add(k.getSigningDuration()).Sub(time.Now())
-		totalLifespan := time.Now().Add(k.getLifespanDuration()).Sub(time.Now())
+		signingLifespan := time.Now().Add(k.GetSigningDuration()).Sub(time.Now())
+		totalLifespan := time.Now().Add(k.GetLifespanDuration()).Sub(time.Now())
 
 		// Func for moving keys out of the signing pool
 		k.activeKeys[key.KeyID()] = time.AfterFunc(signingLifespan, func() {
@@ -229,12 +229,17 @@ func (k *KeySet) GetPublicKeySet() *KeySetResponse {
 	return &KeySetResponse{Keys: publicKeys}
 }
 
-// getSigningDuration returns the duration in seconds the key is valid for signing new jwt(s).
-func (k *KeySet) getSigningDuration() time.Duration {
+// GetTokenDuration returns the duration in seconds a jwt is valid for.
+func (k *KeySet) GetTokenDuration() time.Duration {
+	return time.Duration(k.jwtLifespanSeconds) * time.Second
+}
+
+// GetSigningDuration returns the duration in seconds the key is valid for signing new jwt(s).
+func (k *KeySet) GetSigningDuration() time.Duration {
 	return time.Duration(k.keyLifespanSeconds-k.jwtLifespanSeconds) * time.Second
 }
 
-// getLifespanDuration returns the total duration in seconds before the key will be removed from the keys set.
-func (k *KeySet) getLifespanDuration() time.Duration {
+// GetLifespanDuration returns the total duration in seconds before the key will be removed from the keys set.
+func (k *KeySet) GetLifespanDuration() time.Duration {
 	return time.Duration(k.keyLifespanSeconds) * time.Second
 }

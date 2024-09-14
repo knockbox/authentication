@@ -27,19 +27,19 @@ func (u UserSQLImpl) Update(user models.User) (sql.Result, error) {
 }
 
 func (u UserSQLImpl) GetById(id int) (*models.User, error) {
-	var user *models.User
+	user := &models.User{}
 	err := u.Get(user, queries.GetUserById, id)
 	return user, err
 }
 
 func (u UserSQLImpl) GetByAccountId(id int) (*models.User, error) {
-	var user *models.User
+	user := &models.User{}
 	err := u.Get(user, queries.GetUserByAccountId, id)
 	return user, err
 }
 
 func (u UserSQLImpl) GetByUsername(username string) (*models.User, error) {
-	var user *models.User
+	user := &models.User{}
 	err := u.Get(user, queries.GetUserByUsername, username)
 	return user, err
 }

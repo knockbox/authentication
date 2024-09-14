@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/joho/godotenv"
 	"github.com/knockbox/authentication/internal/handlers"
+	"github.com/knockbox/authentication/pkg/keyring"
 	"github.com/knockbox/authentication/pkg/middleware"
 	"github.com/knockbox/authentication/pkg/utils"
 	"os"
@@ -31,6 +32,17 @@ func main() {
 	flag.Parse()
 
 	l := hclog.Default()
+	l.SetLevel(hclog.Trace)
+
+	keyset, err := keyring.NewSet(129600, 86400, l)
+	if err != nil {
+		panic(err)
+	}
+
+	keyset.SetCurveTypes(keyring.P521)
+	if err := keyset.Generate(3); err != nil {
+		panic(err)
+	}
 
 	if useDotEnv {
 		l.Info("using .env")
@@ -50,7 +62,7 @@ func main() {
 
 	// Routes
 	handlers.NewHealthcheck().Route(apiRouter)
-	handlers.NewUser(l).Route(apiRouter)
+	handlers.NewUser(l, keyset).Route(apiRouter)
 
 	utils.StartServerWithGracefulShutdown(sm, bindAddress, l)
 }

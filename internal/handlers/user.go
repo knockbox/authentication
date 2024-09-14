@@ -1,43 +1,35 @@
 package handlers
 
 import (
-	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/go-hclog"
 	"github.com/knockbox/authentication/internal/client"
+	"github.com/knockbox/authentication/pkg/keyring"
 	"github.com/knockbox/authentication/pkg/payloads"
 	"github.com/knockbox/authentication/pkg/responses"
 	"github.com/knockbox/authentication/pkg/utils"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"net/http"
+	"time"
 )
 
 type User struct {
 	hclog.Logger
+	*keyring.KeySet
 	c *client.UserClient
 }
 
 func (u *User) Register(w http.ResponseWriter, r *http.Request) {
 	payload := &payloads.UserRegister{}
-
-	if err := json.NewDecoder(r.Body).Decode(payload); err != nil {
-		http.Error(w, "malformed request body, expected json", http.StatusBadRequest)
-		return
-	}
-
-	if errs := utils.ValidateStruct(payload); errs != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(errs)
+	if utils.DecodeAndValidateStruct(w, r, payload) {
 		return
 	}
 
 	if err := u.c.RegisterUser(payload); err != nil {
 		if utils.IsDuplicateEntry(err) {
-			w.Header().Set("Content-Type", "application/json")
+			msg := "a user with the provided username or email already exists"
+			responses.NewGenericError(msg).Encode(w)
 			w.WriteHeader(http.StatusBadRequest)
-
-			ge := responses.NewGenericError("a user with the provided username or email already exists")
-			_ = json.NewEncoder(w).Encode(ge)
 			return
 		}
 
@@ -49,11 +41,52 @@ func (u *User) Register(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (u *User) Route(r *mux.Router) {
-	r.HandleFunc("/register", u.Register).Methods(http.MethodPost)
+func (u *User) Login(w http.ResponseWriter, r *http.Request) {
+	payload := &payloads.UserLogin{}
+	if utils.DecodeAndValidateStruct(w, r, payload) {
+		return
+	}
+
+	user, err := u.c.GetUserByUsername(payload.Username)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		u.Debug("username not found", "payload", payload, "err", err)
+		return
+	}
+
+	if !utils.ComparePasswords(user.Password, payload.Password) {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	token, err := jwt.
+		NewBuilder().
+		IssuedAt(time.Now()).
+		Expiration(time.Now().Add(u.GetTokenDuration())).
+		Claim("account_id", user.AccountId).
+		Claim("username", user.Username).
+		Claim("role", user.Role).
+		Build()
+
+	key := u.GetRandomKey()
+	bs, err := jwt.Sign(token, jwt.WithKey(key.Algorithm(), key))
+	if err != nil {
+		responses.NewGenericError("failed to sign token").Encode(w)
+		w.WriteHeader(http.StatusInternalServerError)
+
+		u.Error("failed to sign token", "err", err)
+		return
+	}
+
+	responses.NewBearerToken(bs, int(u.GetTokenDuration().Seconds())).Encode(w)
 }
 
-func NewUser(l hclog.Logger) *User {
+func (u *User) Route(r *mux.Router) {
+	r.HandleFunc("/register", u.Register).Methods(http.MethodPost)
+	r.HandleFunc("/login", u.Login).Methods(http.MethodPost)
+}
+
+func NewUser(l hclog.Logger, ks *keyring.KeySet) *User {
 	db, err := utils.MySQLConnection()
 	if err != nil {
 		panic(err)
@@ -61,6 +94,7 @@ func NewUser(l hclog.Logger) *User {
 
 	return &User{
 		Logger: l,
+		KeySet: ks,
 		c:      client.NewUserClient(db, l),
 	}
 }

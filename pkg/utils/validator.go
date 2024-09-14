@@ -1,8 +1,10 @@
 package utils
 
 import (
+	"encoding/json"
 	"github.com/go-playground/validator/v10"
 	"github.com/knockbox/authentication/pkg/responses"
+	"net/http"
 )
 
 var validate = validator.New()
@@ -25,4 +27,23 @@ func ValidateStruct(strct interface{}) []*responses.ValidationError {
 	}
 
 	return errors
+}
+
+// DecodeAndValidateStruct decodes and validates the given strct. If we have written a response, this returns true.
+func DecodeAndValidateStruct(w http.ResponseWriter, r *http.Request, strct interface{}) bool {
+	if err := json.NewDecoder(r.Body).Decode(strct); err != nil {
+		msg := "malformed body, expected json"
+		responses.NewGenericError(msg).Encode(w)
+		w.WriteHeader(http.StatusBadRequest)
+		return true
+	}
+
+	if errs := ValidateStruct(strct); errs != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(errs)
+		return true
+	}
+
+	return false
 }
