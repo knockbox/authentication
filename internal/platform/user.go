@@ -2,6 +2,7 @@ package platform
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/hashicorp/go-hclog"
 	"github.com/jmoiron/sqlx"
 	"github.com/knockbox/authentication/internal/queries"
@@ -46,7 +47,7 @@ func (u UserSQLImpl) GetByUsername(username string) (*models.User, error) {
 
 func (u UserSQLImpl) GetLikeUsername(username string, page models.Page) ([]models.User, error) {
 	var users []models.User
-	err := u.Select(users, queries.GetUsersLikeUsername, username, page.Limit, page.Offset)
+	err := u.Select(&users, queries.GetUsersLikeUsername, fmt.Sprintf("%%%s%%", username), page.Limit, page.Offset)
 	return users, err
 }
 

@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/knockbox/authentication/internal/client"
 	"github.com/knockbox/authentication/pkg/keyring"
+	"github.com/knockbox/authentication/pkg/models"
 	"github.com/knockbox/authentication/pkg/payloads"
 	"github.com/knockbox/authentication/pkg/responses"
 	"github.com/knockbox/authentication/pkg/utils"
@@ -138,6 +139,7 @@ func (u *User) GetByUsername(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		responses.NewGenericError("provided username was empty").Encode(w)
+		return
 	}
 
 	user, err := u.c.GetUserByUsername(username)
@@ -156,6 +158,48 @@ func (u *User) GetByUsername(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(user.DTO())
 }
 
+// GetLikeUsername returns all the users like the given username.
+func (u *User) GetLikeUsername(w http.ResponseWriter, r *http.Request) {
+	username, ok := mux.Vars(r)["username"]
+	if !ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		responses.NewGenericError("username was not provided").Encode(w)
+		return
+	}
+
+	username = strings.TrimSpace(username)
+	if len(username) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		responses.NewGenericError("provided username was empty").Encode(w)
+		return
+	}
+
+	page := models.PageFromRequest(r)
+	users, err := u.c.GetUsersLikeUsername(username, page)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		u.Error("failed to get users like username", "err", err)
+		return
+	}
+
+	if len(users) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// TODO: Return the users and the paging result.
+	// TODO: Get the total.
+	var dtos []*models.UserDTO
+	for _, user := range users {
+		dtos = append(dtos, user.DTO())
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(dtos)
+}
+
 func (u *User) Route(r *mux.Router) {
 	r.HandleFunc("/register", u.Register).Methods(http.MethodPost)
 	r.HandleFunc("/login", u.Login).Methods(http.MethodPost)
@@ -163,6 +207,9 @@ func (u *User) Route(r *mux.Router) {
 	userRouter := r.PathPrefix("/user").Subrouter()
 	userRouter.HandleFunc("/{account_id}", u.GetByAccountId).Methods(http.MethodGet)
 	userRouter.HandleFunc("/username/{username}", u.GetByUsername).Methods(http.MethodGet)
+
+	searchRouter := userRouter.PathPrefix("/search").Subrouter()
+	searchRouter.HandleFunc("/{username}", u.GetLikeUsername).Methods(http.MethodGet)
 }
 
 func NewUser(l hclog.Logger, ks *keyring.KeySet) *User {

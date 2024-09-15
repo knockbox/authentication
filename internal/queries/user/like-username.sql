@@ -1,1 +1,1 @@
-SELECT * FROM users WHERE username LIKE '%?%' LIMIT ? OFFSET ?
+SELECT * FROM users WHERE username LIKE ? LIMIT ? OFFSET ?
