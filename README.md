@@ -1,4 +1,4 @@
 # knockbox/authentication
 
-The User Authentication service.
+The User & Authentication service.
 
