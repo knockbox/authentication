@@ -1,6 +1,8 @@
 package client
 
 import (
+	"database/sql"
+	"errors"
 	"github.com/hashicorp/go-hclog"
 	"github.com/jmoiron/sqlx"
 	"github.com/knockbox/authentication/internal/platform"
@@ -68,15 +70,30 @@ func (c *UserClient) UpdateUser(user *models.User, payload *payloads.UserUpdate)
 }
 
 func (c *UserClient) GetUserById(id int) (*models.User, error) {
-	return c.user.GetById(id)
+	user, err := c.user.GetById(id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	return user, err
 }
 
 func (c *UserClient) GetUserByAccountId(accountId string) (*models.User, error) {
-	return c.user.GetByAccountId(accountId)
+	user, err := c.user.GetByAccountId(accountId)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	return user, err
 }
 
 func (c *UserClient) GetUserByUsername(username string) (*models.User, error) {
-	return c.user.GetByUsername(username)
+	user, err := c.user.GetByUsername(username)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	return user, err
 }
 
 func (c *UserClient) GetUsersLikeUsername(username string, page *models.Page) ([]models.User, error) {

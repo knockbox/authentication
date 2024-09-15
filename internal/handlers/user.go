@@ -12,6 +12,7 @@ import (
 	"github.com/knockbox/authentication/pkg/utils"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"net/http"
+	"strings"
 )
 
 type User struct {
@@ -113,12 +114,46 @@ func (u *User) GetByAccountId(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(user.DTO())
 }
 
 // GetByUsername returns a user by their username.
 func (u *User) GetByUsername(w http.ResponseWriter, r *http.Request) {
+	username, ok := mux.Vars(r)["username"]
+	if !ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		responses.NewGenericError("username was not provided").Encode(w)
+		return
+	}
+
+	username = strings.TrimSpace(username)
+	if len(username) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		responses.NewGenericError("provided username was empty").Encode(w)
+	}
+
+	user, err := u.c.GetUserByUsername(username)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		u.Error("failed to get user by username", "err", err)
+		return
+	}
+
+	if user == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(user.DTO())
 }
 
 func (u *User) Route(r *mux.Router) {
@@ -127,7 +162,7 @@ func (u *User) Route(r *mux.Router) {
 
 	userRouter := r.PathPrefix("/user").Subrouter()
 	userRouter.HandleFunc("/{account_id}", u.GetByAccountId).Methods(http.MethodGet)
-	userRouter.HandleFunc("/username/{username}", u.GetByAccountId).Methods(http.MethodGet)
+	userRouter.HandleFunc("/username/{username}", u.GetByUsername).Methods(http.MethodGet)
 }
 
 func NewUser(l hclog.Logger, ks *keyring.KeySet) *User {
