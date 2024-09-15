@@ -63,6 +63,7 @@ func main() {
 	// Routes
 	handlers.NewHealthcheck().Route(apiRouter)
 	handlers.NewUser(l, keyset).Route(apiRouter)
+	handlers.NewToken(l, keyset).Route(apiRouter)
 
 	utils.StartServerWithGracefulShutdown(sm, bindAddress, l)
 }

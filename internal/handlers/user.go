@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/knockbox/authentication/internal/client"
 	"github.com/knockbox/authentication/pkg/keyring"
+	"github.com/knockbox/authentication/pkg/middleware"
 	"github.com/knockbox/authentication/pkg/models"
 	"github.com/knockbox/authentication/pkg/payloads"
 	"github.com/knockbox/authentication/pkg/responses"
@@ -200,7 +201,62 @@ func (u *User) GetLikeUsername(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(dtos)
 }
 
+// Update applies changes to the User based on the bearer token.
+func (u *User) Update(w http.ResponseWriter, r *http.Request) {
+	payload := &payloads.UserUpdate{}
+	if utils.DecodeAndValidateStruct(w, r, payload) {
+		return
+	}
+
+	if !utils.PayloadHasChanges(*payload) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	token, ok := r.Context().Value(middleware.BearerTokenContextKey).(*jwt.Token)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		u.Warn("User.Update token was expected and should have existed but was not found")
+		return
+	}
+
+	accountId, ok := (*token).Get("account_id")
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		u.Warn("User.Update token was missing claim 'account_id'")
+		return
+	}
+
+	id, ok := accountId.(string)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		u.Warn("User.Update token claim 'account_id' was not a string")
+		return
+	}
+
+	user, err := u.c.GetUserByAccountId(id)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		u.Error("failed to get user by account_id", "err", err)
+		return
+	}
+
+	if user == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if err := u.c.UpdateUser(user, payload); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (u *User) Route(r *mux.Router) {
+	bearer := middleware.UseBearerToken(u.Logger)
+
 	r.HandleFunc("/register", u.Register).Methods(http.MethodPost)
 	r.HandleFunc("/login", u.Login).Methods(http.MethodPost)
 
@@ -210,6 +266,10 @@ func (u *User) Route(r *mux.Router) {
 
 	searchRouter := userRouter.PathPrefix("/search").Subrouter()
 	searchRouter.HandleFunc("/{username}", u.GetLikeUsername).Methods(http.MethodGet)
+
+	authorizedUserRouter := r.PathPrefix("/user").Subrouter()
+	authorizedUserRouter.Use(bearer.Middleware)
+	authorizedUserRouter.HandleFunc("", u.Update).Methods(http.MethodPut, http.MethodPatch)
 }
 
 func NewUser(l hclog.Logger, ks *keyring.KeySet) *User {
