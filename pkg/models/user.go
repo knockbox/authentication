@@ -5,6 +5,8 @@ import (
 	"github.com/knockbox/authentication/pkg/enums"
 	"github.com/knockbox/authentication/pkg/payloads"
 	"github.com/knockbox/authentication/pkg/utils"
+	"github.com/lestrrat-go/jwx/v2/jwt"
+	"time"
 )
 
 // User define a User in our database.
@@ -58,4 +60,15 @@ func (u *User) ApplyUpdate(payload *payloads.UserUpdate) error {
 	}
 
 	return nil
+}
+
+// CreateToken returns a jwt.Token with claims from the User.
+func (u *User) CreateToken(duration time.Duration) (jwt.Token, error) {
+	return jwt.NewBuilder().
+		IssuedAt(time.Now()).
+		Expiration(time.Now().Add(duration)).
+		Claim("account_id", u.AccountId).
+		Claim("username", u.Username).
+		Claim("role", u.Role).
+		Build()
 }

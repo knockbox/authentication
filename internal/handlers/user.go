@@ -10,7 +10,6 @@ import (
 	"github.com/knockbox/authentication/pkg/utils"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"net/http"
-	"time"
 )
 
 type User struct {
@@ -59,14 +58,14 @@ func (u *User) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := jwt.
-		NewBuilder().
-		IssuedAt(time.Now()).
-		Expiration(time.Now().Add(u.GetTokenDuration())).
-		Claim("account_id", user.AccountId).
-		Claim("username", user.Username).
-		Claim("role", user.Role).
-		Build()
+	token, err := user.CreateToken(u.GetTokenDuration())
+	if err != nil {
+		responses.NewGenericError("failed to create token").Encode(w)
+		w.WriteHeader(http.StatusInternalServerError)
+
+		u.Error("failed to create token", "err", err)
+		return
+	}
 
 	key := u.GetRandomKey()
 	bs, err := jwt.Sign(token, jwt.WithKey(key.Algorithm(), key))
