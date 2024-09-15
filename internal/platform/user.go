@@ -32,9 +32,9 @@ func (u UserSQLImpl) GetById(id int) (*models.User, error) {
 	return user, err
 }
 
-func (u UserSQLImpl) GetByAccountId(id int) (*models.User, error) {
+func (u UserSQLImpl) GetByAccountId(accountId string) (*models.User, error) {
 	user := &models.User{}
-	err := u.Get(user, queries.GetUserByAccountId, id)
+	err := u.Get(user, queries.GetUserByAccountId, accountId)
 	return user, err
 }
 

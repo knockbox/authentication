@@ -27,7 +27,7 @@ func NewUser() *User {
 		Username:  "",
 		Password:  "",
 		Email:     "",
-		Role:      enums.User,
+		Role:      enums.Pending,
 	}
 }
 
@@ -71,4 +71,25 @@ func (u *User) CreateToken(duration time.Duration) (jwt.Token, error) {
 		Claim("username", u.Username).
 		Claim("role", u.Role).
 		Build()
+}
+
+// DTO converts the User to the UserDTO.
+func (u *User) DTO() *UserDTO {
+	return &UserDTO{
+		Id:        nil,
+		AccountId: u.AccountId,
+		Username:  u.Username,
+		Email:     nil,
+		Role:      u.Role,
+	}
+}
+
+// UserDTO is used when returning the User as JSON. We omit fields based on the authorization
+// of the requesting agent.
+type UserDTO struct {
+	Id        *uint          `json:"id,omitempty"`
+	AccountId uuid.UUID      `json:"account_id"`
+	Username  string         `json:"username"`
+	Email     *string        `json:"email,omitempty"`
+	Role      enums.UserRole `json:"role"`
 }

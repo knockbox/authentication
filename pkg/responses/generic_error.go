@@ -14,8 +14,5 @@ func NewGenericError(msg string) *GenericError {
 }
 
 func (e *GenericError) Encode(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Accept", "application/json")
-
 	_ = json.NewEncoder(w).Encode(e)
 }

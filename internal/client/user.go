@@ -71,7 +71,7 @@ func (c *UserClient) GetUserById(id int) (*models.User, error) {
 	return c.user.GetById(id)
 }
 
-func (c *UserClient) GetUserByAccountId(accountId int) (*models.User, error) {
+func (c *UserClient) GetUserByAccountId(accountId string) (*models.User, error) {
 	return c.user.GetByAccountId(accountId)
 }
 

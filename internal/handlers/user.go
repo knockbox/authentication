@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"encoding/json"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/go-hclog"
 	"github.com/knockbox/authentication/internal/client"
@@ -18,6 +20,7 @@ type User struct {
 	c *client.UserClient
 }
 
+// Register handles user registration.
 func (u *User) Register(w http.ResponseWriter, r *http.Request) {
 	payload := &payloads.UserRegister{}
 	if utils.DecodeAndValidateStruct(w, r, payload) {
@@ -26,9 +29,11 @@ func (u *User) Register(w http.ResponseWriter, r *http.Request) {
 
 	if err := u.c.RegisterUser(payload); err != nil {
 		if utils.IsDuplicateEntry(err) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+
 			msg := "a user with the provided username or email already exists"
 			responses.NewGenericError(msg).Encode(w)
-			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
@@ -40,6 +45,7 @@ func (u *User) Register(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
+// Login handles user login.
 func (u *User) Login(w http.ResponseWriter, r *http.Request) {
 	payload := &payloads.UserLogin{}
 	if utils.DecodeAndValidateStruct(w, r, payload) {
@@ -48,6 +54,7 @@ func (u *User) Login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := u.c.GetUserByUsername(payload.Username)
 	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		u.Debug("username not found", "payload", payload, "err", err)
 		return
@@ -60,8 +67,9 @@ func (u *User) Login(w http.ResponseWriter, r *http.Request) {
 
 	token, err := user.CreateToken(u.GetTokenDuration())
 	if err != nil {
-		responses.NewGenericError("failed to create token").Encode(w)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
+		responses.NewGenericError("failed to create token").Encode(w)
 
 		u.Error("failed to create token", "err", err)
 		return
@@ -70,8 +78,9 @@ func (u *User) Login(w http.ResponseWriter, r *http.Request) {
 	key := u.GetRandomKey()
 	bs, err := jwt.Sign(token, jwt.WithKey(key.Algorithm(), key))
 	if err != nil {
-		responses.NewGenericError("failed to sign token").Encode(w)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
+		responses.NewGenericError("failed to sign token").Encode(w)
 
 		u.Error("failed to sign token", "err", err)
 		return
@@ -80,9 +89,45 @@ func (u *User) Login(w http.ResponseWriter, r *http.Request) {
 	responses.NewBearerToken(bs, int(u.GetTokenDuration().Seconds())).Encode(w)
 }
 
+// GetByAccountId returns a user by their account_id.
+func (u *User) GetByAccountId(w http.ResponseWriter, r *http.Request) {
+	accountId, ok := mux.Vars(r)["account_id"]
+	if !ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		responses.NewGenericError("account_id was not provided").Encode(w)
+		return
+	}
+
+	if _, err := uuid.Parse(accountId); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		responses.NewGenericError("the provided account_id failed to parse").Encode(w)
+		return
+	}
+
+	user, err := u.c.GetUserByAccountId(accountId)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		u.Error("failed to get user by account_id", "err", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(user.DTO())
+}
+
+// GetByUsername returns a user by their username.
+func (u *User) GetByUsername(w http.ResponseWriter, r *http.Request) {
+}
+
 func (u *User) Route(r *mux.Router) {
 	r.HandleFunc("/register", u.Register).Methods(http.MethodPost)
 	r.HandleFunc("/login", u.Login).Methods(http.MethodPost)
+
+	userRouter := r.PathPrefix("/user").Subrouter()
+	userRouter.HandleFunc("/{account_id}", u.GetByAccountId).Methods(http.MethodGet)
+	userRouter.HandleFunc("/username/{username}", u.GetByAccountId).Methods(http.MethodGet)
 }
 
 func NewUser(l hclog.Logger, ks *keyring.KeySet) *User {
