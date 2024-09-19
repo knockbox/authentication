@@ -32,6 +32,7 @@ func ValidateStruct(strct interface{}) []*responses.ValidationError {
 // DecodeAndValidateStruct decodes and validates the given strct. If we have written a response, this returns true.
 func DecodeAndValidateStruct(w http.ResponseWriter, r *http.Request, strct interface{}) bool {
 	if err := json.NewDecoder(r.Body).Decode(strct); err != nil {
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 
 		msg := "malformed body, expected json"
@@ -42,7 +43,7 @@ func DecodeAndValidateStruct(w http.ResponseWriter, r *http.Request, strct inter
 	if errs := ValidateStruct(strct); errs != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		
+
 		_ = json.NewEncoder(w).Encode(errs)
 		return true
 	}
