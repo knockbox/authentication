@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"github.com/hashicorp/go-hclog"
+	"github.com/knockbox/authentication/pkg/enums"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"net/http"
@@ -23,6 +24,20 @@ func (b *BearerToken) Middleware(next http.Handler) http.Handler {
 		if err != nil {
 			b.l.Info("bearer token middleware (required)", "err", err)
 			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		claims := token.PrivateClaims()
+		rawRole, ok := claims["role"].(string)
+		if !ok {
+			b.l.Warn("failed to extract role from claims")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if enums.UserRoleFromString(rawRole).IsForbidden() {
+			b.l.Debug("missing required role to access endpoint")
+			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 
