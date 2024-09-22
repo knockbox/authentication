@@ -63,6 +63,12 @@ func (u *User) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	if !utils.ComparePasswords(user.Password, payload.Password) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
