@@ -27,7 +27,7 @@ func NewUser() *User {
 		Username:  "",
 		Password:  "",
 		Email:     "",
-		Role:      enums.Pending,
+		Role:      enums.User,
 	}
 }
 
@@ -57,6 +57,10 @@ func (u *User) ApplyUpdate(payload *payloads.UserUpdate) error {
 			return err
 		}
 		u.Password = pwd
+	}
+
+	if payload.Role != nil {
+		u.Role = *payload.Role
 	}
 
 	return nil

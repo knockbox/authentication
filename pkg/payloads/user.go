@@ -1,5 +1,7 @@
 package payloads
 
+import "github.com/knockbox/authentication/pkg/enums"
+
 type UserRegister struct {
 	Username string `json:"username" validate:"required,gte=2,lte=16"`
 	Password string `json:"password" validate:"required,gte=12,lte=32"`
@@ -12,7 +14,7 @@ type UserLogin struct {
 }
 
 type UserUpdate struct {
-	Email    *string `json:"email,omitempty" validate:"omitempty,email"`
-	Password *string `json:"password,omitempty" validate:"omitempty,gte=12,lte=32"`
-	//Role     *enums.UserRole `json:"role,omitempty" validate:"omitempty,gte=0,lte=6"`
+	Email    *string         `json:"email,omitempty" validate:"omitempty,email"`
+	Password *string         `json:"password,omitempty" validate:"omitempty,gte=12,lte=32"`
+	Role     *enums.UserRole `json:"role,omitempty" validate:"omitempty,gte=0,lte=6"`
 }
