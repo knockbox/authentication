@@ -12,4 +12,4 @@ COPY --from=build /knockbox/bin /
 
 EXPOSE 9090
 
-CMD ["/main"]
+ENTRYPOINT ["/main"]
