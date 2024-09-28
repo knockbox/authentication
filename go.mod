@@ -11,6 +11,7 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lestrrat-go/jwx/v2 v2.1.1
+	github.com/rs/cors v1.11.1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.27.0
 )
