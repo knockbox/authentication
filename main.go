@@ -9,8 +9,6 @@ import (
 	"github.com/knockbox/authentication/pkg/keyring"
 	"github.com/knockbox/authentication/pkg/middleware"
 	"github.com/knockbox/authentication/pkg/utils"
-	"github.com/rs/cors"
-	"net/http"
 	"os"
 )
 
@@ -67,17 +65,5 @@ func main() {
 	handlers.NewUser(l, keyset).Route(apiRouter)
 	handlers.NewToken(l, keyset).Route(apiRouter)
 
-	handler := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{
-			http.MethodGet,
-			http.MethodPost,
-			http.MethodPut,
-			http.MethodPatch,
-			http.MethodDelete,
-		},
-		AllowCredentials: true,
-	}).Handler(sm)
-
-	utils.StartServerWithGracefulShutdown(handler, bindAddress, l)
+	utils.StartServerWithGracefulShutdown(middleware.CORSMiddleware(sm), bindAddress, l)
 }
